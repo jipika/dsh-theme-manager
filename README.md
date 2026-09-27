@@ -80,29 +80,38 @@
 要再给菜单做定制，请做成**带开关**的独立段落，别用「恒存在的标签写死 token」——
 那种写法没有开关，也没法只作用于目标浮层。
 
-### 分组标题（v0.6.1）
+### 分组标题（v0.6.1 起）
 
-菜单里的分组标题 ——「DeepSeek 账号」「DeepSeek」「GPT」这些供应商 / 账号名 —— 官方是
-`._1weZzq_groupTitle`：它 **sticky 吸顶**，并且**又叠了一层** `background: var(--dsw-specific-menu)`。
+菜单里的分组标题 ——「DeepSeek 账号」「command」「GPT」这些供应商 / 分组名 —— 官方是
+`._1weZzq_groupTitle`（模型选择菜单那套 `_1weZzq_*` 类）：它 **sticky 吸顶**，并且
+**又叠了一层** `background: var(--dsw-specific-menu)`。
 
 ```css
-/* 官方：面板本体… */
-.wGg57a_panel:before{ background:var(--dsw-specific-menu); backdrop-filter:var(--dsw-menu-backdrop-filter); … }
-/* …已经做过毛玻璃了，标题在上面再叠一层同色的半透明 */
+/* 官方：菜单面板本体… */
+.QQBH7W_panel{ background:var(--dsw-specific-menu); backdrop-filter:var(--dsw-menu-backdrop-filter); … }
+/* …已经做过毛玻璃了，分组标题在上面再叠一层同色的半透明 */
 ._1weZzq_groupTitle{ position:sticky; top:0; z-index:1; background:var(--dsw-specific-menu); … }
 ```
 
-同一个 token 叠两次 → 标题那一块比面板亮一截，看着像凭空多出一块「白色实心背景」。
+同一个 token 叠两次 → 标题那一块比面板亮一截；**吸顶时最刺眼**（滚动时它钉在面板顶边，
+看着像凭空多出一条白色实心背景）。
 
-本插件默认把它换成**同款毛玻璃**。`backdrop-filter` 只模糊背后内容、**不叠加颜色**，所以
-标题颜色与面板一致，同时保留吸顶时挡住滚动内容的能力：
+本插件默认这样处理（`flat` 档）：
 
 ```css
 [class*="_groupTitle"]{
-  background: transparent !important;
-  backdrop-filter: var(--dsw-menu-backdrop-filter, blur(40px) saturate(150%)) !important;
+  background: transparent !important;   /* 不再叠那层半透明白 */
+  backdrop-filter: none !important;     /* 也不叠二次毛玻璃，原因见下 */
+  position: static !important;          /* 不再吸顶 → 顶部不会再有独立的一条 */
+  top: auto !important;
 }
 ```
+
+- **为什么连吸顶一起取消**：v0.6.1 先试过「透明 + 同款毛玻璃（保留吸顶）」——非吸顶的
+  标题确实与面板同色了，但**吸顶那一条**是在已经做过 backdrop-filter 的面板上再采一次
+  背面，Chromium 把它渲染成比面板更白的一块（用户实测截图）。吸顶与"同色"在这条路径上
+  不可兼得，于是选同色：标题回到普通流，跟随列表滚动。
+- 想保留吸顶的分组导航？把开关切到 `official`（官方原样，代价就是顶部那条偏亮）。
 
 **开关**：主题页调色盘底部那颗「菜单分组标题 · 跟随面板 / 官方叠色」按钮；状态存
 `localStorage["dsh-theme-manager:menu.v1"]`（`"flat"` / `"official"`，默认 `flat`）。

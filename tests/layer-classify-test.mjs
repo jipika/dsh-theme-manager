@@ -253,14 +253,15 @@ check("⑫ 接管后关闭第三方层 → disabled 落地", THIRD_PARTY_2.disab
 /* ── 菜单分组标题修补（v0.6.1）：默认 flat，可切回 official ── */
 
 check("⑬ 默认模式 = flat（跟随面板毛玻璃）", api.readMenuFlat(), true);
-check("⑭ 修补 CSS 用属性子串选择器 + 去叠色 + 加同款毛玻璃", (() => {
+check("⑭ 修补 CSS：属性子串选择器 + 去叠色 + 取消吸顶 + 不叠二次毛玻璃", (() => {
 	const css = api.MENU_FLAT_CSS;
 	return {
 		选择器: css.indexOf('[class*="_groupTitle"]') >= 0,
 		去叠色: css.indexOf("background: transparent") >= 0,
-		毛玻璃: css.indexOf("backdrop-filter: var(--dsw-menu-backdrop-filter") >= 0
+		取消吸顶: css.indexOf("position: static") >= 0,
+		无二次毛玻璃: css.indexOf("backdrop-filter: none") >= 0
 	};
-})(), { 选择器: true, 去叠色: true, 毛玻璃: true });
+})(), { 选择器: true, 去叠色: true, 取消吸顶: true, 无二次毛玻璃: true });
 check("⑮ 载入时已注入修补标签（带自己的排除标记）", (() => {
 	const el = dom.document.getElementById("dsh-theme-manager-menu");
 	return el && { 内容一致: el.textContent === api.MENU_FLAT_CSS, 排除标记: el.getAttribute("data-dsh-theme-manager") };
