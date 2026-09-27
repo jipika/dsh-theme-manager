@@ -1,0 +1,37 @@
+{
+  "name": "dsh-theme-manager",
+  "version": "0.4.1",
+  "description": "Theme manager for DeepSeek Harness: one settings page that lists every theme layer injected into the page (color tokens, fonts, surface fixes, third-party skins) and switches each of them on or off without restarting the app.",
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "theme",
+    "theme-manager",
+    "appearance",
+    "settings"
+  ],
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
