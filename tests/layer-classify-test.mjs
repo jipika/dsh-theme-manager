@@ -223,6 +223,13 @@ check("⑤ 无标识层 → 只读（hash key 认不出归属）", (() => {
 
 check("⑥ 脏 key（attr:data-plugin=…）被过滤，不进 off 集合", Array.from(api.getSnapshot().off).sort(), ["claude-theme:colors"]);
 
+check("⑥b 没改过任何颜色时调色盘不注入任何 CSS（菜单等浮层回到官方外观）", api.paletteCss(), "");
+check("⑥c 改色后只写该槽位的 token，不碰 --dsw-menu-*（v0.4.1 的越权覆盖已删除）", (() => {
+	api.setSlotColor("brand", "#7C6BD6");
+	const css = api.paletteCss();
+	return { 含品牌色: css.indexOf("--dsw-alias-brand-primary: #7C6BD6") >= 0, 含菜单token: /--dsw-menu-/.test(css) };
+})(), { 含品牌色: true, 含菜单token: false });
+
 check("⑦ off 命中本主题层 → disabled 落地到标签", CLAUDE_ONLY.disabled, true);
 check("⑧ off 命中官方宿主层 → 强制恢复启用（自愈）", OFFICIAL_HOST.disabled, false);
 check("⑨ 本主题层关掉后仍可被重新打开（toggle 语义）", (() => {

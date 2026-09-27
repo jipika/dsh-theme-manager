@@ -57,22 +57,28 @@
   「同一个 `data-plugin` 值下面的多张样式表」各占一行 —— 实测页面上有 8 张共用
   `@deepseek-ai/dsh-api-remotes`、7 张共用 `dsh-ui-fixes`，不兜底就会一关全关。
 
-## 菜单纯色面板（v0.4.1 起是固定行为，没有开关）
+## 菜单浮层（v0.6.0 起不干预）
 
-模型选择 / 右键菜单这类 `MenuSurface` 浮层固定用**纯色、不透明、无毛玻璃**的面板：
+模型选择 / 右键菜单这类 `MenuSurface` 浮层**完全跟随官方外观**：
 
 ```css
---dsw-menu-surface-fill: var(--dsw-alias-bg-base, #FAF9F5);
---dsw-menu-backdrop-filter: none;
+/* 官方值，由 @deepseek-ai/dsh-client-ui-theme 注入 */
+--dsw-menu-surface-fill: rgba(248, 249, 250, .58);   /* 暗色 rgba(67, 69, 74, .45) */
+--dsw-specific-menu: var(--dsw-menu-surface-fill);
+--dsw-menu-backdrop-filter: blur(40px) saturate(150%);
 ```
 
-- 颜色写成 `var(--dsw-alias-bg-base)` **引用**而不是写死色值 —— 调色盘改「页面底色」时
-  菜单跟着变，**永远是同一个颜色**；
-- 官方 `--dsw-specific-menu` 的值本身就是 `var(--dsw-menu-surface-fill)`，所以菜单里的
-  sticky 分组标题条会自动同色（整块单一颜色，不会出现两种灰）；
-- 这两条声明无条件写入（调色盘 style 标签恒存在），**没有开关、也没有 localStorage 状态**。
+面板 `.wGg57a_panel` 与它的 `::before` 直接吃这两个 token → 半透明 + 40px 毛玻璃
+（`background: var(--dsw-specific-menu); backdrop-filter: var(--dsw-menu-backdrop-filter)`）。
 
-**落点说明**：改动只在本插件；主题 `dsh-claude-theme` 仍然一个菜单 token 都不碰。
+**v0.4.1–v0.5.0 曾在这里无条件覆盖**：`--dsw-menu-surface-fill: var(--dsw-alias-bg-base)`
++ `--dsw-menu-backdrop-filter: none`，把菜单换成不透明的页面底色。因为调色盘 style 标签
+**恒存在**（哪怕一个颜色都没改），那两条对页面上**所有**菜单生效 —— 用户实测反馈「弹窗
+样式被污染了」。v0.6.0 已删除：调色盘只在用户**真的改过某个槽位**时才注入 `<style>`，
+没改过就一个标签都不留。
+
+要再给菜单做定制，请做成**带开关**的独立段落，别用「恒存在的标签写死 token」——
+那种写法没有开关，也没法只作用于目标浮层。
 
 ## 调色盘
 
