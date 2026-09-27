@@ -80,6 +80,34 @@
 要再给菜单做定制，请做成**带开关**的独立段落，别用「恒存在的标签写死 token」——
 那种写法没有开关，也没法只作用于目标浮层。
 
+### 分组标题（v0.6.1）
+
+菜单里的分组标题 ——「DeepSeek 账号」「DeepSeek」「GPT」这些供应商 / 账号名 —— 官方是
+`._1weZzq_groupTitle`：它 **sticky 吸顶**，并且**又叠了一层** `background: var(--dsw-specific-menu)`。
+
+```css
+/* 官方：面板本体… */
+.wGg57a_panel:before{ background:var(--dsw-specific-menu); backdrop-filter:var(--dsw-menu-backdrop-filter); … }
+/* …已经做过毛玻璃了，标题在上面再叠一层同色的半透明 */
+._1weZzq_groupTitle{ position:sticky; top:0; z-index:1; background:var(--dsw-specific-menu); … }
+```
+
+同一个 token 叠两次 → 标题那一块比面板亮一截，看着像凭空多出一块「白色实心背景」。
+
+本插件默认把它换成**同款毛玻璃**。`backdrop-filter` 只模糊背后内容、**不叠加颜色**，所以
+标题颜色与面板一致，同时保留吸顶时挡住滚动内容的能力：
+
+```css
+[class*="_groupTitle"]{
+  background: transparent !important;
+  backdrop-filter: var(--dsw-menu-backdrop-filter, blur(40px) saturate(150%)) !important;
+}
+```
+
+**开关**：主题页调色盘底部那颗「菜单分组标题 · 跟随面板 / 官方叠色」按钮；状态存
+`localStorage["dsh-theme-manager:menu.v1"]`（`"flat"` / `"official"`，默认 `flat`）。
+选择器用属性子串（hash 前缀随版本变，后缀 `_groupTitle` 不变），对所有菜单一致生效。
+
 ## 调色盘
 
 一栏 9 个颜色槽（品牌色 / 页面底色 / 浮层 / 次级底色 / 气泡 / 主文字 / 次要文字 /

@@ -42,19 +42,23 @@ function makeStyle(attrs, css) {
 
 function setUpDom(tags, seed) {
 	const store = new Map(Object.entries(seed || {}));
+	const created = [];
 	const head = {
 		querySelectorAll: (sel) => (sel === "style" ? tags.slice() : []),
-		appendChild() {},
+		appendChild: (el) => { if (el) created.push(el); },
 		contains: () => true
 	};
-	const created = [];
 	const document = {
 		head,
 		body: {},
-		getElementById: () => null,
+		getElementById: (id) => created.filter((el) => el && el.id === id)[0] || null,
 		createElement: () => {
 			const el = makeStyle({}, "");
-			created.push(el);
+			/* 真实 <style> 有 remove()，插件靠它撤掉自己的标签（applyPalette / applyMenuFix） */
+			el.remove = () => {
+				const i = created.indexOf(el);
+				if (i >= 0) created.splice(i, 1);
+			};
 			return el;
 		},
 		querySelector: () => null
@@ -158,7 +162,7 @@ const SEED = {
 	"dsh-theme-manager:managed.v1": JSON.stringify(["plugin:dsh-skill-mcp-panel/SkillsSection.module.css"])
 };
 
-const { api } = await loadPlugin(TAGS, SEED);
+const { api, dom } = await loadPlugin(TAGS, SEED);
 const layers = api.scanLayers();
 
 check("总层数 = 10（非主题层不算）", layers.length, 10);
@@ -245,6 +249,31 @@ const harmonizerAfter = row(api.scanLayers(), "enhancer.module.css");
 check("⑪ 接管后 → 可开关，且 key 稳定", { manageable: harmonizerAfter.manageable, canTakeOver: harmonizerAfter.canTakeOver, keyStable: harmonizerAfter.key === harmonizer.key }, { manageable: true, canTakeOver: false, keyStable: true });
 api.toggleLayer(harmonizer.key);
 check("⑫ 接管后关闭第三方层 → disabled 落地", THIRD_PARTY_2.disabled, true);
+
+/* ── 菜单分组标题修补（v0.6.1）：默认 flat，可切回 official ── */
+
+check("⑬ 默认模式 = flat（跟随面板毛玻璃）", api.readMenuFlat(), true);
+check("⑭ 修补 CSS 用属性子串选择器 + 去叠色 + 加同款毛玻璃", (() => {
+	const css = api.MENU_FLAT_CSS;
+	return {
+		选择器: css.indexOf('[class*="_groupTitle"]') >= 0,
+		去叠色: css.indexOf("background: transparent") >= 0,
+		毛玻璃: css.indexOf("backdrop-filter: var(--dsw-menu-backdrop-filter") >= 0
+	};
+})(), { 选择器: true, 去叠色: true, 毛玻璃: true });
+check("⑮ 载入时已注入修补标签（带自己的排除标记）", (() => {
+	const el = dom.document.getElementById("dsh-theme-manager-menu");
+	return el && { 内容一致: el.textContent === api.MENU_FLAT_CSS, 排除标记: el.getAttribute("data-dsh-theme-manager") };
+})(), { 内容一致: true, 排除标记: "menu" });
+check("⑯ 切到 official → 标签被移除", (() => {
+	api.setMenuFlat(false);
+	return { 标签: dom.document.getElementById("dsh-theme-manager-menu"), 模式: api.readMenuFlat() };
+})(), { 标签: null, 模式: false });
+check("⑰ 切回 flat → 标签恢复且内容与常量一致", (() => {
+	api.setMenuFlat(true);
+	const el = dom.document.getElementById("dsh-theme-manager-menu");
+	return { 已恢复: el !== null, 内容一致: el !== null && el.textContent === api.MENU_FLAT_CSS };
+})(), { 已恢复: true, 内容一致: true });
 
 /* ───────────────────────────── 结果 ───────────────────────────── */
 
