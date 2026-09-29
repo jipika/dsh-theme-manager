@@ -65,6 +65,7 @@ if (existsSync(stateFile)) rmSync(stateFile);
 	ok("初始无 updatedAt", r.body?.background?.updatedAt === null);
 	ok("初始毛玻璃遮罩默认打开（背景铺满后正文仍可读）", r.body?.background?.card?.enabled === true, JSON.stringify(r.body?.background?.card));
 	ok("初始毛玻璃 blur = 20", r.body?.background?.card?.blur === 20, String(r.body?.background?.card?.blur));
+	ok("初始文字颜色为黑字", r.body?.background?.textColor === "black");
 }
 
 /* ③ 设置本地图片（含未知字段与越界值） */
@@ -77,6 +78,7 @@ if (existsSync(stateFile)) rmSync(stateFile);
 		dim: -3,
 		fit: "contain",
 		coverage: "full",
+		textColor: "white",
 		position: "TOP RIGHT",
 		hacker: "drop-me",
 		card: { enabled: true, alpha: 2 }
@@ -90,6 +92,7 @@ if (existsSync(stateFile)) rmSync(stateFile);
 	ok("dim -3 → 钳到 0", bg?.dim === 0, String(bg?.dim));
 	ok("fit 白名单命中", bg?.fit === "contain");
 	ok("coverage 保留在状态里", bg?.coverage === "full", bg?.coverage);
+	ok("手动白字写入成功", bg?.textColor === "white");
 	ok("position 归一为小写", bg?.position === "top right", bg?.position);
 	ok("未知字段被丢弃", bg?.hacker === undefined);
 	ok("card.alpha 2 → 钳到 1", bg?.card?.alpha === 1, String(bg?.card?.alpha));
@@ -102,6 +105,7 @@ if (existsSync(stateFile)) rmSync(stateFile);
 {
 	const raw = JSON.parse(readFileSync(stateFile, "utf8"));
 	ok("状态文件已写入且 JSON 合法", raw.type === "image" && raw.source.value.endsWith("pic.png"));
+	ok("手动白字落盘", raw.textColor === "white");
 	const mod2 = await import(`../lib/index.js?t=${Date.now() + 1}`);
 	const store = mod2.__internal.stateIo();
 	const loaded = await store.load();

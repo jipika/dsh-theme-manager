@@ -221,6 +221,7 @@ const BG_STATE = {
 	blur: 0,
 	dim: 0,
 	coverage: "panels",
+	textColor: "black",
 	video: { loop: true, muted: true, rate: 1 },
 	card: { enabled: false, alpha: 0.72, blur: 0 },
 	updatedAt: "2026-09-28T03:00:00.000Z"
@@ -263,7 +264,7 @@ function mergeState(state, patch) {
 	if (patch.path !== undefined) next.source = { kind: "path", value: patch.path };
 	if (patch.url !== undefined) next.source = { kind: "url", value: patch.url };
 	if (patch.source !== undefined) next.source = patch.source;
-	for (const key of ["fit", "position", "opacity", "blur", "dim", "coverage"]) if (patch[key] !== undefined) next[key] = patch[key];
+	for (const key of ["fit", "position", "opacity", "blur", "dim", "coverage", "textColor"]) if (patch[key] !== undefined) next[key] = patch[key];
 	if (patch.video !== undefined) next.video = { ...next.video, ...patch.video };
 	if (patch.card !== undefined) next.card = { ...next.card, ...patch.card };
 	if (next.source.value === "") next.type = "none";
@@ -306,7 +307,8 @@ function mergeState(state, patch) {
 	contains("② 面板档只透明三个列容器", style.textContent, '[data-slot="root"] > * > :is([class$="_sidebarCol"], [class$="_centerCol"], [class$="_rightbarCol"])');
 	contains("② 主区内容根透明", style.textContent, '[data-phase][class$="_root"]');
 	absent("② 输入框不被通用 data-phase 规则命中", style.textContent, '[data-phase] { background:');
-	contains("② 原生输入区渐变被柔和过渡替换", style.textContent, '[data-phase="active"] [data-composer-seat]');
+	contains("② 遮罩就绪后输入区透出壁纸", style.textContent, '[data-conversation-scroll]:has([data-dsh-bg-clip]) > [data-composer-seat] { background: transparent !important; }');
+	contains("② 正文在输入区前渐隐", style.textContent, '[data-dsh-bg-clip]:not(:has([data-conversation-composer-overlay])) { mask-image: linear-gradient(');
 	contains("② 暗化遮罩", style.textContent, "background: rgba(0, 0, 0, 0.35)");
 	contains("② 媒体未加载或半透明时有主题底色兜底", style.textContent, "pointer-events: none; background: var(--dsw-alias-bg-base, #fff);");
 }
@@ -356,9 +358,9 @@ function mergeState(state, patch) {
 	api.pushBackground({ type: "image", path: BG_STATE.source.value, coverage: "full", card: { enabled: true, alpha: 0.6, blur: 12 } });
 	await new Promise((r) => setTimeout(r, 0));
 	const style = dom.document.getElementById(api.BG_STYLE_ID).textContent;
-	contains("⑤ 全部档输入卡片有半透明表面", style, '[data-composer-seat] [data-composer-card] { background: color-mix(in srgb, var(--dsw-specific-input-major, var(--dsw-alias-bg-base, #fff)) 78%, transparent) !important; }');
-	contains("⑤ 全部档输入卡片模糊限制在 12px", style, '[data-composer-seat] [data-composer-card] { backdrop-filter: blur(12px)');
-	contains("⑤ 全部档座位完全透明", style, 'var(--dsw-alias-bg-base, #fff) 0%, transparent) 36px');
+	contains("⑤ 全部档卡片融合于壁纸", style, '[data-composer-seat] [data-composer-card] { background: color-mix(in srgb, var(--dsw-specific-input-major, var(--dsw-alias-bg-base, #fff)) 78%, transparent) !important; }');
+	contains("⑤ 全部档卡片毛玻璃限幅", style, '[data-composer-seat] [data-composer-card] { backdrop-filter: blur(12px)');
+	contains("⑤ 全部档正文先渐隐再到输入区", style, '[data-dsh-bg-clip]:not(:has([data-conversation-composer-overlay]))');
 	contains("⑤ 毛玻璃遮罩 color-mix（主区取页面底色）", style, "color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 60%, transparent)");
 	contains("⑤ 毛玻璃遮罩 color-mix（侧栏取官方侧栏色）", style, "color-mix(in srgb, var(--dsw-specific-sidebar-fill, var(--dsw-alias-bg-base, #fff)) 60%, transparent)");
 	contains("⑤ 毛玻璃模糊", style, "backdrop-filter: blur(12px) saturate(140%)");
@@ -463,7 +465,9 @@ function mergeState(state, patch) {
 	contains("⑩ 毛玻璃 blur 20 + saturate", style, "backdrop-filter: blur(20px) saturate(140%)");
 	contains("⑩ 原生会话头的实色覆盖被清理", style, '[data-slot="conversation.session.header"] > header, body [class$="_toggleCluster"] { background: transparent !important; }');
 	contains("⑩ 侧栏列表底部不再以实色收尾", style, '[data-slot="sidebar.workspaces"] [class$="_fade"] { background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--dsw-specific-sidebar-fill, #fff) 18%, transparent)) !important; }');
-	contains("⑩ 底部过渡随遮罩透明度变化", style, 'var(--dsw-alias-bg-base, #fff) 25%, transparent) 36px');
+	contains("⑩ 输入区底座透出壁纸，与遮罩透明度无关", style, '[data-composer-seat] { background: transparent !important; }');
+	contains("⑩ 默认黑字连输入控件一起切换", style, "color-scheme: light; --dsw-alias-bg-base: #FAF9F7");
+	contains("⑩ 侧栏新会话按钮随文字模式切换", style, '[class$="_newSession"] { background: color-mix(in srgb, var(--dsw-specific-input-major) 88%, transparent) !important;');
 }
 
 /* 底板档与关闭遮罩都应遵守用户的设置，不额外画毛玻璃。 */
@@ -479,7 +483,67 @@ function mergeState(state, patch) {
 	await new Promise((r) => setTimeout(r, 0));
 	const bare = dom.document.getElementById(api.BG_STYLE_ID).textContent;
 	absent("⑪ 关闭遮罩后不画毛玻璃", bare, "backdrop-filter:");
-	contains("⑪ 关闭遮罩后输入区渐变完全透明", bare, 'var(--dsw-alias-bg-base, #fff) 0%, transparent) 36px');
+	contains("⑪ 关闭列遮罩后仍有正文渐隐", bare, '[data-dsh-bg-clip]:not(:has([data-conversation-composer-overlay]))');
+}
+
+/* 旧状态回退为黑字；手动切换两档后，正文和输入控件变量一同变化。 */
+{
+	const dom = setUpDom();
+	const { api } = await loadPlugin(dom, { fetchImpl: makeHost(BG_STATE) });
+	ok("⑫ 旧状态默认黑字", api.bgNormalize({ ...BG_STATE, textColor: undefined, autoContrast: true }, api.bgDefault).textColor === "black");
+	api.pushBackground({ type: "image", path: BG_STATE.source.value, textColor: "white" });
+	await new Promise((r) => setTimeout(r, 0));
+	let style = dom.document.getElementById(api.BG_STYLE_ID).textContent;
+	contains("⑫ 白字颜色固定", style, "--dsw-alias-label-primary: #F0EEE6");
+	contains("⑫ 白字时输入控件改深底", style, "--dsw-specific-input-major: #262523");
+	absent("⑫ 不再自动采样切换", style, "data-dsh-bg-tone");
+	api.pushBackground({ textColor: "black" });
+	await new Promise((r) => setTimeout(r, 0));
+	style = dom.document.getElementById(api.BG_STYLE_ID).textContent;
+	contains("⑫ 黑字颜色固定", style, "--dsw-alias-label-primary: #191919");
+	contains("⑫ 黑字时输入控件改浅底", style, "--dsw-specific-input-major: #FFFFFF");
+	absent("⑫ 黑字时不遗留白字变量", style, "--dsw-alias-label-primary: #F0EEE6");
+}
+
+/* 输入区背后的正文只做视觉遮罩：跟随滚动计算边界，不改变滚动位置和布局。 */
+{
+	const dom = setUpDom();
+	const { api } = await loadPlugin(dom, { fetchImpl: makeHost(BG_STATE) });
+	api.pushBackground({ type: "image", path: BG_STATE.source.value, coverage: "panels" });
+	await new Promise((r) => setTimeout(r, 0));
+	const port = makeElement("div");
+	const session = makeElement("div");
+	const view = makeElement("div");
+	const seat = makeElement("div");
+	const vars = new Map();
+	let viewTop = -200;
+	let overlay = false;
+	port.getClientRects = () => [{}];
+	port.querySelector = (selector) => selector.includes("conversation.session") ? session : selector.includes("composer-seat") ? seat : selector.includes("composer-overlay") && overlay ? {} : null;
+	session.querySelector = () => view;
+	view.hasAttribute = (name) => view.getAttribute(name) !== null;
+	view.style = {
+		getPropertyValue: (name) => vars.get(name) ?? "",
+		setProperty: (name, value) => vars.set(name, value),
+		removeProperty: (name) => vars.delete(name)
+	};
+	view.getBoundingClientRect = () => ({ top: viewTop, bottom: viewTop + 1000, height: 1000 });
+	seat.getClientRects = () => [{}];
+	seat.getBoundingClientRect = () => ({ top: 300, bottom: 460, height: 160 });
+	dom.document.querySelectorAll = () => [port];
+	api.measureBgClip();
+	ok("⑬ 首次测量只遮住座位后方正文", view.hasAttribute("data-dsh-bg-clip") && vars.get("--dsh-bg-clip-bottom") === "500px" && vars.get("--dsh-bg-clip-fade") === "24px", Object.fromEntries(vars));
+	viewTop = -400;
+	api.measureBgClip();
+	ok("⑬ 滚动后遮罩边界仍对齐座位", vars.get("--dsh-bg-clip-bottom") === "300px", Object.fromEntries(vars));
+	overlay = true;
+	api.measureBgClip();
+	ok("⑬ 轨迹视图撤掉正文遮罩", !view.hasAttribute("data-dsh-bg-clip") && vars.size === 0);
+	overlay = false;
+	api.pushBackground({ type: "none", source: { kind: "", value: "" } });
+	await new Promise((r) => setTimeout(r, 0));
+	api.measureBgClip();
+	ok("⑬ 清除背景后不再给视图遮罩", !view.hasAttribute("data-dsh-bg-clip") && vars.size === 0);
 }
 
 /* ───────────────────────────── 结果 ───────────────────────────── */

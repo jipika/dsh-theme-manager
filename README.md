@@ -65,8 +65,9 @@
 | 本地文件 | **绝对路径**（手填、拖拽、或点「选择文件」）；桌面外壳里 `File` 对象带真实路径，直接用 |
 | 网络地址 | `http(s)://…`，由浏览器直接加载，不经过 host |
 | 适配方式 | `cover` 铺满 / `contain` 完整 / `fill` 拉伸 |
-| 透出范围 | `底板`（只透明页面底板：侧栏与会话区保留原生底色）/ `面板`（各列容器与内容根透明，**背景铺满整个窗口**，推荐）/ `全部`（输入区座位透明，输入卡片改为可读的半透明毛玻璃） |
+| 透出范围 | `底板`（只透明页面底板：侧栏与会话区保留原生底色）/ `面板`（各列容器与内容根透明，**背景铺满整个窗口**，推荐）/ `全部`（输入卡片也透出壁纸；正文在输入区前渐隐） |
 | 不透明度 / 模糊 / 暗化 | 作用于背景层本身；模糊自带轻微放大，避免边缘露出底 |
+| 壁纸上的文字颜色 | 在 `面板` / `全部` 档手动选择 `黑字` / `白字`，立即生效并保存；输入框和按钮表面随选择配套切换。旧版自动采样设置会迁移为默认黑字 |
 | 毛玻璃遮罩（内容底板） | **默认打开**：只在每个列容器上铺一层 `color-mix(官方底色 N%)` + `backdrop-filter: blur(…) saturate(140%)`，避免嵌套遮罩把图片洗白。侧栏取 `--dsw-specific-sidebar-fill`，主区/右栏取 `--dsw-alias-bg-base`；关掉就是纯透明 |
 
 实现要点（都是踩过的坑）：
@@ -83,14 +84,21 @@
   不误改浮层或拖拽手柄；内容根的原生实色单独透明化。`[data-phase]` 也出现在
   输入框上，因此会话根必须同时限定 `_root`，不能用通配选择器。
 - **毛玻璃遮罩每列只画一次**（`CARD_SIDEBAR` / `CARD_MAIN`）：默认侧栏用官方侧栏色、
-  主区/右栏用官方页面底色，透明度 72%、模糊 20px。`面板` 档保留原生输入卡片，
-  座位上的实色渐变改成浅色过渡；`全部` 档让输入卡片也变成半透明毛玻璃。
+  主区/右栏用官方页面底色，透明度 72%、模糊 20px。输入区仍透出连续壁纸；
+  滚动正文在到达输入区前由视图层逐渐淡出，不再从输入卡片背后穿过。
+  `全部` 档的输入卡片保留轻度毛玻璃，未就绪时沿用原生遮挡作为兜底。
   会话头与工作区列表的实色边缘也跟随背景。遮罩可关，
   滑块直接控制各列。状态里已有的 `card.enabled` 和参数优先于默认值。
 - **清除背景会同时撤销所有覆盖样式**：透明底板只在媒体有效时存在，清除后立刻
   交还 DSH 原生底色。
 - **媒体层有主题底色兜底**：图片加载前、失效时，或不透明度低于 100% 时，显示
   `--dsw-alias-bg-base`，避免透出桌面窗口或出现不受控的空白。
+- **文字颜色由用户决定**：`黑字` 配浅色控件，`白字` 配深色控件；两档都给透明区域的
+  文字加轻微反色阴影，避免壁纸局部纹理吞掉笔画。切换只改 CSS，不再按视频帧采样或
+  自动翻色。未设置背景时不注入这些覆盖样式。
+- **轨迹页不遮挡正文**：DSH 0.2 的轨迹视图带 `data-conversation-composer-overlay`，
+  原生样式据此将常驻输入区绝对定位在轨迹内容上；插件按该标记隐藏输入区座位，
+  切回对话时原编辑器及草稿仍在。
 - **只在「类型或地址变了」时重建元素**：调不透明度 / 模糊只改 CSS —— 否则每拖一下滑块都要
   重新下载图片。地址只由**源**决定（路径进 query，不带 revision）。
 - **状态是双份的**：host 的 JSON 是权威，`localStorage["dsh-theme-manager:bg.v1"]` 只是首屏缓存
@@ -130,7 +138,7 @@ curl -H 'Range: bytes=0-1023' "$BASE/asset?p=/Users/you/Pictures/a.jpg"
 ```
 
 - **字段**：`type`(`none|image|video`)、`path`、`url`、`source`(`{kind,value}`)、
-  `fit`、`position`、`opacity`(0–1)、`blur`(0–60)、`dim`(0–1)、`coverage`(`base|panels|full`)、
+  `fit`、`position`、`opacity`(0–1)、`blur`(0–60)、`dim`(0–1)、`coverage`(`base|panels|full`)、`textColor`(`black|white`)、
   `video.{loop,muted,rate}`、`card.{enabled,alpha,blur}`。未知字段丢弃，越界值钳制，
   `updatedBy` 记 `X-DSH-Theme-Source` 头（便于分辨是谁改的）。
 - **类型会自动纠正**：声明 `image` 却给了 `.mp4` → 按扩展名纠正成 `video`；只给 `path` 时按扩展名推断。
@@ -235,15 +243,15 @@ dsh-theme-manager
 ## 测试
 
 ```bash
-node tests/layer-classify-test.mjs   # 23 项：主题层三类边界 / 接管 / key 唯一性（最小 DOM stub 真跑 client.js）
-node tests/host-api-test.mjs         # 63 项：真实 HTTP —— 状态归一化与钳制、落盘、Range 206/416、扩展名白名单、CORS、413
-node tests/background-test.mjs       # 67 项：stub DOM 真跑 client.js —— 背景层生成/复用/移除、参数→CSS、与 host 往返、
+node tests/layer-classify-test.mjs   # 24 项：主题层边界 / 接管 / key 唯一性 / 轨迹视图输入区（最小 DOM stub 真跑 client.js）
+node tests/host-api-test.mjs         # 66 项：真实 HTTP —— 状态归一化与钳制、落盘、Range 206/416、扩展名白名单、CORS、413
+node tests/background-test.mjs       # 81 项：stub DOM 真跑 client.js —— 背景层生成/复用/移除、参数→CSS、与 host 往返、
                                      #        合并段是否真的挂上（3 个 slot + 命名空间）
 npm test                             # 三个一起跑
 ```
 
 三个测试都**不需要重启应用、不需要浏览器**：host 部分把 handler 挂到真实 `node:http` 上打请求，
-client 部分用最小 DOM stub 跑真的 `factory`。这是「client 插件必须重启才生效」约束下唯一的重启前验证手段。
+client 部分用最小 DOM stub 跑真的 `factory`。视觉与采样行为另用 Chromium 模拟真实布局验证。
 
 ## License
 

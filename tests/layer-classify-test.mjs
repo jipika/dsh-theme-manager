@@ -253,6 +253,11 @@ check("⑫ 接管后关闭第三方层 → disabled 落地", THIRD_PARTY_2.disab
 /* ── 菜单分组标题修补（v0.6.1）：默认 flat，可切回 official ── */
 
 check("⑬ 默认模式 = flat（跟随面板毛玻璃）", api.readMenuFlat(), true);
+check("轨迹等叠放视图隐藏常驻输入区，切回对话仍保留 DOM 草稿", (() => {
+	api.ensureStyle();
+	const css = dom.document.getElementById("dsh-theme-manager-style")?.textContent ?? "";
+	return css.includes('[data-conversation-scroll]:has([data-conversation-composer-overlay]) > [data-composer-seat]{display:none!important}');
+})(), true);
 check("⑭ 修补 CSS：属性子串选择器 + 去叠色 + 取消吸顶 + 不叠二次毛玻璃", (() => {
 	const css = api.MENU_FLAT_CSS;
 	return {
