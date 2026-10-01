@@ -430,6 +430,7 @@ function mergeState(state, patch) {
 	const harmonizerStyle = dom.head.children.filter((el) => el.getAttribute("data-plugin-css") === "dsh-theme-manager/harmonizer.module.css")[0];
 	ok("⑧ 静态 CSS 用的是本插件命名空间", harmonizerStyle !== undefined, dom.head.children.map((el) => el.getAttribute("data-plugin-css")));
 	ok("⑧ 静态 CSS 里有 98 条规则块量级的样式", harmonizerStyle !== undefined && harmonizerStyle.textContent.length > 10000, harmonizerStyle?.textContent?.length);
+	ok("⑧ 消息行不覆盖原生 hidden=until-found，也不插入估算高度", harmonizerStyle !== undefined && !/\[class\$=_flowItem\][^{]*\{[^}]*(?:content-visibility|contain-intrinsic-size)/u.test(harmonizerStyle.textContent));
 	ok("⑧ 没有用旧插件的 data-plugin 值", dom.head.children.every((el) => el.getAttribute("data-plugin") !== "dsh-ui-harmonizer"), dom.head.children.map((el) => el.getAttribute("data-plugin")));
 	/* localStorage 键必须保持原样：用户原有的宽度/字号/字体设置不能丢 */
 	ok("⑧ 存储键仍是 harness-ui-enhancer.state", half !== null && JSON.stringify(half).length > 0);
@@ -466,8 +467,8 @@ function mergeState(state, patch) {
 	contains("⑩ 原生会话头的实色覆盖被清理", style, '[data-slot="conversation.session.header"] > header, body [class$="_toggleCluster"] { background: transparent !important; }');
 	contains("⑩ 侧栏列表底部不再以实色收尾", style, '[data-slot="sidebar.workspaces"] [class$="_fade"] { background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--dsw-specific-sidebar-fill, #fff) 18%, transparent)) !important; }');
 	contains("⑩ 输入区底座透出壁纸，与遮罩透明度无关", style, '[data-composer-seat] { background: transparent !important; }');
-	contains("⑩ 默认黑字连输入控件一起切换", style, "color-scheme: light; --dsw-alias-bg-base: #FAF9F7");
-	contains("⑩ 侧栏新会话按钮随文字模式切换", style, '[class$="_newSession"] { background: color-mix(in srgb, var(--dsw-specific-input-major) 88%, transparent) !important;');
+	contains("⑩ 默认黑字只设置文字", style, "--dsw-alias-label-primary: #191919");
+	contains("⑩ 白底新会话按钮保留原主题字色", style, '[class$="_newSession"] { --dsw-alias-label-primary: var(--dsh-bg-native-primary)');
 }
 
 /* 底板档与关闭遮罩都应遵守用户的设置，不额外画毛玻璃。 */
@@ -486,7 +487,7 @@ function mergeState(state, patch) {
 	contains("⑪ 关闭列遮罩后仍有正文渐隐", bare, '[data-dsh-bg-clip]:not(:has([data-conversation-composer-overlay]))');
 }
 
-/* 旧状态回退为黑字；手动切换两档后，正文和输入控件变量一同变化。 */
+/* 旧状态回退为黑字；切换两档只触及壁纸上的文字，输入卡片仍用原生配色。 */
 {
 	const dom = setUpDom();
 	const { api } = await loadPlugin(dom, { fetchImpl: makeHost(BG_STATE) });
@@ -494,15 +495,18 @@ function mergeState(state, patch) {
 	api.pushBackground({ type: "image", path: BG_STATE.source.value, textColor: "white" });
 	await new Promise((r) => setTimeout(r, 0));
 	let style = dom.document.getElementById(api.BG_STYLE_ID).textContent;
-	contains("⑫ 白字颜色固定", style, "--dsw-alias-label-primary: #F0EEE6");
-	contains("⑫ 白字时输入控件改深底", style, "--dsw-specific-input-major: #262523");
+	contains("⑫ 白字颜色固定", style, "--dsw-alias-label-primary: #FFFFFF");
+	contains("⑫ 范围限定在会话视图", style, '[data-slot="conversation.session"] > [class$="_viewArea"]');
+	absent("⑫ 不覆盖输入卡片底色变量", style, "--dsw-specific-input-major:");
+	absent("⑫ 不覆盖页面底色变量", style, "--dsw-alias-bg-base:");
+	absent("⑫ 不切换浏览器配色模式", style, "color-scheme:");
+	absent("⑫ 不叠加文字阴影", style, "text-shadow:");
 	absent("⑫ 不再自动采样切换", style, "data-dsh-bg-tone");
 	api.pushBackground({ textColor: "black" });
 	await new Promise((r) => setTimeout(r, 0));
 	style = dom.document.getElementById(api.BG_STYLE_ID).textContent;
 	contains("⑫ 黑字颜色固定", style, "--dsw-alias-label-primary: #191919");
-	contains("⑫ 黑字时输入控件改浅底", style, "--dsw-specific-input-major: #FFFFFF");
-	absent("⑫ 黑字时不遗留白字变量", style, "--dsw-alias-label-primary: #F0EEE6");
+	absent("⑫ 黑字时不遗留白字变量", style, "--dsw-alias-label-primary: #FFFFFF");
 }
 
 /* 输入区背后的正文只做视觉遮罩：跟随滚动计算边界，不改变滚动位置和布局。 */

@@ -67,7 +67,7 @@
 | 适配方式 | `cover` 铺满 / `contain` 完整 / `fill` 拉伸 |
 | 透出范围 | `底板`（只透明页面底板：侧栏与会话区保留原生底色）/ `面板`（各列容器与内容根透明，**背景铺满整个窗口**，推荐）/ `全部`（输入卡片也透出壁纸；正文在输入区前渐隐） |
 | 不透明度 / 模糊 / 暗化 | 作用于背景层本身；模糊自带轻微放大，避免边缘露出底 |
-| 壁纸上的文字颜色 | 在 `面板` / `全部` 档手动选择 `黑字` / `白字`，立即生效并保存；输入框和按钮表面随选择配套切换。旧版自动采样设置会迁移为默认黑字 |
+| 壁纸上的文字颜色 | 在 `面板` / `全部` 档手动选择 `黑字` / `白字`，立即生效并保存；只改变透明区域文字，白底输入框等控件保持原样 |
 | 毛玻璃遮罩（内容底板） | **默认打开**：只在每个列容器上铺一层 `color-mix(官方底色 N%)` + `backdrop-filter: blur(…) saturate(140%)`，避免嵌套遮罩把图片洗白。侧栏取 `--dsw-specific-sidebar-fill`，主区/右栏取 `--dsw-alias-bg-base`；关掉就是纯透明 |
 
 实现要点（都是踩过的坑）：
@@ -93,9 +93,9 @@
   交还 DSH 原生底色。
 - **媒体层有主题底色兜底**：图片加载前、失效时，或不透明度低于 100% 时，显示
   `--dsw-alias-bg-base`，避免透出桌面窗口或出现不受控的空白。
-- **文字颜色由用户决定**：`黑字` 配浅色控件，`白字` 配深色控件；两档都给透明区域的
-  文字加轻微反色阴影，避免壁纸局部纹理吞掉笔画。切换只改 CSS，不再按视频帧采样或
-  自动翻色。未设置背景时不注入这些覆盖样式。
+- **文字颜色由用户决定**：`黑字` / `白字` 只覆盖透明侧栏、会话标题与正文的文字变量。
+  输入卡片和白底“新会话”按钮沿用原主题的文字与背景；不采样视频帧，也不切换组件底色。
+  未设置背景时不注入这些覆盖样式。
 - **轨迹页不遮挡正文**：DSH 0.2 的轨迹视图带 `data-conversation-composer-overlay`，
   原生样式据此将常驻输入区绝对定位在轨迹内容上；插件按该标记隐藏输入区座位，
   切回对话时原编辑器及草稿仍在。
@@ -150,8 +150,8 @@ curl -H 'Range: bytes=0-1023' "$BASE/asset?p=/Users/you/Pictures/a.jpg"
 
 ## 合并进来的「界面统一」段（原 dsh-ui-harmonizer）
 
-v0.8.0 起，`dsh-ui-harmonizer` 0.8.3 的浏览器半边被**逐字**合并进 `lib/client.js`
-（只改了 style 标签的命名空间与日志前缀；`localStorage["harness-ui-enhancer.state"]`
+v0.8.0 起，`dsh-ui-harmonizer` 0.8.3 的浏览器半边合并进 `lib/client.js`
+（调整 style 标签的命名空间、日志前缀和 DSH 0.2 的消息隐藏兼容；`localStorage["harness-ui-enhancer.state"]`
 原样保留，所以你原有的宽度 / 字号 / 字体设置不会丢）。原先单独挂载的包已从两个 profile 的
 `dsh.profile.bundles` 与 `dependencies` 里移除 —— **外观层只留本插件一个入口**。
 
@@ -161,6 +161,11 @@ v0.8.0 起，`dsh-ui-harmonizer` 0.8.3 的浏览器半边被**逐字**合并进 
 - 插件视觉协调：better-sidebar（面板 / 开关 / 根类同步）、genui 工具面板、第三方设置页自动补标题与间距；
 - 界面定制：对话内容宽度、对话字号、工作区字号、UI 字体、圆角卡片；
 - 会话区圆角卡片覆盖层（`shell.overlay`）。
+
+消息行的隐藏与高度由 DSH 管理。合并段不再给 `_flowItem` 设置
+`content-visibility:auto` 和 `contain-intrinsic-size:auto 120px`：前者会覆盖
+原生 `hidden="until-found"`，后者会在会话切换时引入估算高度变化。
+该修正同时保存在 vendor 副本与内联产物中。
 
 维护方式：
 
@@ -245,7 +250,7 @@ dsh-theme-manager
 ```bash
 node tests/layer-classify-test.mjs   # 24 项：主题层边界 / 接管 / key 唯一性 / 轨迹视图输入区（最小 DOM stub 真跑 client.js）
 node tests/host-api-test.mjs         # 66 项：真实 HTTP —— 状态归一化与钳制、落盘、Range 206/416、扩展名白名单、CORS、413
-node tests/background-test.mjs       # 81 项：stub DOM 真跑 client.js —— 背景层生成/复用/移除、参数→CSS、与 host 往返、
+node tests/background-test.mjs       # 85 项：stub DOM 真跑 client.js —— 背景层生成/复用/移除、参数→CSS、与 host 往返、
                                      #        合并段是否真的挂上（3 个 slot + 命名空间）
 npm test                             # 三个一起跑
 ```
