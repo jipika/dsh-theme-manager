@@ -1,7 +1,7 @@
 {
   "name": "dsh-theme-manager",
-  "version": "0.8.6",
-  "description": "Theme manager for DeepSeek Harness: one settings page that lists every theme layer injected into the page (color tokens, fonts, surface fixes, third-party skins) and switches each of them on or off without restarting, plus a page background (local image or video, swappable from the UI or by any external program over a loopback HTTP API), and the merged-in UI-harmonizer segments (official UI normalization, plugin reconciliation, chat width / font size / rounded card).",
+  "version": "0.9.0",
+  "description": "Theme manager for DeepSeek Harness, deliberately narrow: one settings page that changes the accent color (主色调 / background color tokens) and the page background (local image or video, swappable from the UI or by any external program over a loopback HTTP API), plus the merged-in 「界面定制」 sizing block (chat width / chat font size / sidebar font size / UI font / rounded card).",
   "license": "MIT",
   "keywords": [
     "dsh",
@@ -10,6 +10,7 @@
     "theme",
     "theme-manager",
     "appearance",
+    "accent-color",
     "wallpaper",
     "background",
     "video-wallpaper",
@@ -24,7 +25,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "test": "node tests/layer-classify-test.mjs && node tests/host-api-test.mjs && node tests/background-test.mjs"
+    "test": "node tests/host-api-test.mjs && node tests/background-test.mjs"
   },
   "dsh": {
     "client": {

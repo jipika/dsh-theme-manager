@@ -5,8 +5,8 @@
 // 覆盖三件事：
 //   ① 背景层（图片/视频）：DOM 生成与移除、参数 → CSS 映射、元素复用策略；
 //   ② 与 host 的往返：fetch 打 /dsh-theme-manager/*、revision 变化才重建 DOM；
-//   ③ 合并进来的「界面统一」段（dsh-ui-harmonizer 逐字副本）真的被挂上：
-//      3 个 slot 注册 + 静态 CSS 标签用的是本插件命名空间。
+//   ③ 内联的「界面定制」段（原 dsh-ui-harmonizer，已裁剪掉 UI 规范化/插件协调）真的被挂上：
+//      设置项 + 圆角卡片 slot 注册 + 静态 CSS 只剩字号/宽度/卡片那批规则。
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
@@ -187,7 +187,7 @@ async function loadPlugin(dom, { fetchImpl } = {}) {
 		useEffect: () => {},
 		useMemo: (fn) => fn(),
 		useCallback: (fn) => fn,
-		useSyncExternalStore: () => ({ layers: [], off: new Set(), managed: new Set(), palette: {}, menuFlat: true, bg: null, bgNotice: null, version: 0 }),
+		useSyncExternalStore: () => ({ palette: {}, bg: null, bgNotice: null, version: 0 }),
 		Fragment: "Fragment"
 	};
 	const exports = spec.factory((id) => (id === "react" ? React : {}));
@@ -407,7 +407,7 @@ function mergeState(state, patch) {
 	ok("⑦ __dshTheme.get() 返回当前状态副本", dom.window.__dshTheme.get().type === "image");
 }
 
-/* ═══════════════════ 用例 8：合并段（dsh-ui-harmonizer）真的挂上 ═══════════════════ */
+/* ═══════════════════ 用例 8：「界面定制」段真的挂上（已裁剪版） ═══════════════════ */
 
 {
 	const dom = setUpDom();
@@ -427,9 +427,13 @@ function mergeState(state, patch) {
 	ok("⑧ 注册了 shell.overlay（圆角卡片覆盖层）", registered.some((r) => String(r).startsWith("shell.overlay")), registered);
 	ok("⑧ 注册了本插件的主题设置页", registered.some((r) => String(r).includes("theme-manager")), registered);
 	ok("⑧ 内联段跑过 CSS 生命周期 effect", effects.some((l) => String(l).includes("css lifecycle")), effects);
+	ok("⑧ 不再注册设置页统一头（GeneralHeader 已删）", !registered.some((r) => String(r).includes("ui-enhancer-header")), registered);
+	ok("⑧ 不再注册 better-sidebar / genui 协调 effect", !effects.some((l) => /better-sidebar|relocation|title fill|tooltips/.test(String(l))), effects);
 	const harmonizerStyle = dom.head.children.filter((el) => el.getAttribute("data-plugin-css") === "dsh-theme-manager/harmonizer.module.css")[0];
 	ok("⑧ 静态 CSS 用的是本插件命名空间", harmonizerStyle !== undefined, dom.head.children.map((el) => el.getAttribute("data-plugin-css")));
-	ok("⑧ 静态 CSS 里有 98 条规则块量级的样式", harmonizerStyle !== undefined && harmonizerStyle.textContent.length > 10000, harmonizerStyle?.textContent?.length);
+	ok("⑧ 静态 CSS 只剩界面定制那批规则块（< 7KB）", harmonizerStyle !== undefined && harmonizerStyle.textContent.length > 4000 && harmonizerStyle.textContent.length < 7000, harmonizerStyle?.textContent?.length);
+	ok("⑧ 保留 --enhancer-* 驱动规则与圆角卡片类", harmonizerStyle !== undefined && /--enhancer-content-width/.test(harmonizerStyle.textContent) && /enhc-center-card-on/.test(harmonizerStyle.textContent));
+	ok("⑧ 已删掉插件协调 / UI 规范化的选择器", harmonizerStyle !== undefined && !/nArs4W|_toggleButton|_toggleCluster|data-genui|settings\\\\.section/.test(harmonizerStyle.textContent), harmonizerStyle?.textContent?.slice(0, 200));
 	ok("⑧ 消息行不覆盖原生 hidden=until-found，也不插入估算高度", harmonizerStyle !== undefined && !/\[class\$=_flowItem\][^{]*\{[^}]*(?:content-visibility|contain-intrinsic-size)/u.test(harmonizerStyle.textContent));
 	ok("⑧ 没有用旧插件的 data-plugin 值", dom.head.children.every((el) => el.getAttribute("data-plugin") !== "dsh-ui-harmonizer"), dom.head.children.map((el) => el.getAttribute("data-plugin")));
 	/* localStorage 键必须保持原样：用户原有的宽度/字号/字体设置不能丢 */

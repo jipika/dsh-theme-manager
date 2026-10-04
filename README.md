@@ -1,59 +1,77 @@
 # dsh-theme-manager
 
-> One settings page that lists every **theme layer** injected into the DSH page, switches
-> each of them on or off, paints a **page background (image / video)** you can swap from the
-> UI **or from any external program over a loopback HTTP API**, and carries the merged-in
-> **UI-harmonizer** segments (official UI normalization, plugin reconciliation, chat width /
-> font size / rounded card).
->
-> 给 DeepSeek Harness 一个「主题管理」页：页面上每个定义了 `--dsw-*` token 的样式层逐层开关、
-> 一栏调色盘、**页面背景（图片 / 视频）**、以及**本机 HTTP 对外接口**；
-> 另外吸收了原先单独挂载的 `dsh-ui-harmonizer`（界面统一段）。
+> 给 DeepSeek Harness 的**窄口径**外观插件。设置 → 左侧导航「主题」里只有两件事：
+> 换**主色调 / 背景色**，换**页面背景**（图片 / 视频，也能被本机 HTTP 接口远程更换）。
+> 另外把「界面定制」并了进来（设置 → 通用设置的 **字号 / 宽度 / 字体 / 圆角卡片**，原
+> `dsh-ui-harmonizer` 的那一块）。除此之外什么都不管。
 
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-> **拥有**：设置左侧导航「主题」页；本插件自己的四张 `<style>`（配置层 / 调色盘 / 菜单修补 / 背景）；
-> 页面背景层 `#dsh-theme-manager-bg-layer`（插在 `body` 最前面，画在内容之下）；
+> **拥有**：设置页「主题」（`settings.section id=theme-manager`）；本插件的三张 `<style>`
+> （设置页样式 / 调色盘 / 背景）；背景层 `#dsh-theme-manager-bg-layer`（插在 `body` 最前面）；
 > host 侧路由 `/dsh-theme-manager/*` 与状态文件 `$DSH_HOME/state/theme-manager/background.json`；
-> 以及**从 `dsh-ui-harmonizer` 合并来的「界面统一」段**（`settings.general.item` 里的「界面定制」、
-> `shell.overlay` 的圆角卡片、原生 title 气泡、better-sidebar / genui 协调、设置页规范器）。
+> 「界面定制」段（`settings.general.item` 里一行 + `shell.overlay` 的圆角卡片覆盖层）。
 > **冲突时**：`--dsh-chat-content-width` 让给 `dsh-ui-fixes`（官方拖拽优先）；会话滚动行为归
-> `dsh-think-ux` / `dsh-smooth-stream`；`--dsw-menu-surface-fill` 等 MenuSurface token **一律不改**
-> （菜单保持官方半透明毛玻璃）；`dsh-ui-harmonizer` 包**不要与本插件同时挂载**（同一份代码会跑两遍）。
+> `dsh-think-ux` / `dsh-smooth-stream`；MenuSurface token（`--dsw-menu-surface-fill` 等）**一律不改**
+> （菜单保持官方毛玻璃）。
 > **回滚**：删 profile `cordis.patch.yml` 里 id `theme-manager` 的 insert + 重启应用；只回滚背景
-> → 主题页点「清除背景」，或删 `~/.dsh/state/theme-manager/background.json`（不影响其它功能）。
+> → 主题页点「清除背景」，或删 `~/.dsh/state/theme-manager/background.json`。
 
-> **入口**：设置 → 左侧导航「主题」；界面定制仍在 设置 → 通用设置 → 「界面定制」。
+> **入口**：设置 → 左侧导航「主题」；界面定制在 设置 → 通用设置 → 「界面定制」。
 > **改 `lib/client.js` 或 `lib/index.js` 后必须重启应用**（client bundle 与 host 半边都在启动时读进内存）。
 
 ---
 
-## 它解决什么
+## 它做什么（v0.9.0 的边界）
 
-主题类插件（皮肤、配色、字体、某个组件的补救样式）都是往 `<head>` 注入一张 `<style>`。
-装了多个主题插件后，谁盖谁、怎么单独关掉其中一层，以前只能靠改源码或卸载整包。
-这个插件把这件事变成一个开关面板；页面背景与对外接口则补上了「外观层还差的那两块」。
+| 块 | 位置 | 内容 |
+| --- | --- | --- |
+| 主色调 / 背景色 | 设置 → 主题 | **2 个颜色槽**：主色调（品牌 / 强调色）、背景色（页面底色）；每个槽 = 系统取色器 + 粘贴任意 CSS 颜色 + 重置 |
+| 页面背景 | 设置 → 主题 | 图片 / 视频壁纸（本地绝对路径 · 拖拽 · 网络地址），适配方式、透出范围、不透明度 / 模糊 / 暗化、壁纸文字颜色、毛玻璃遮罩 |
+| 界面定制 | 设置 → 通用设置 | 对话内容宽度、对话字号、工作区字号、UI 字体、圆角卡片（原 `dsh-ui-harmonizer` 的设置项） |
 
-## 主题层：判据与开关机制
+不注册模型工具、不发外部网络请求（只跟自己的 host 路由通信）。
 
-- **主题层 = 定义了 `--dsw-*` token 的 `<style>`**（另外认自报 `data-dsh-claude-theme` 的层）。
-  判据用「定义」（`--dsw-[a-z0-9-]+\s*:`），不是「出现」——只 `var(--dsw-…)` 引用的
-  功能性样式（布局修复、滚动条修补）不会被误列。
-- **开关 = `style.disabled`**。浏览器原生属性，置真整张样式表失效、置回 false
-  立刻恢复。**不需要被管理的插件配合**，所以对第三方主题插件同样有效。
-- **谁能被关**：
-  1. **本主题层**（带 `data-dsh-claude-theme`）—— 自动托管，行尾直接给开关。**自报优先**；
-  2. **其它层** —— 默认只读，点行尾「接管」后才出现开关（显式确认）；
-  3. **宿主层** —— 只有**官方 CSS 注入器加载的组件样式**才算宿主：`data-plugin` 在官方
-     命名空间（`@deepseek-ai/*`）**且**带 `data-plugin-css`（真实文件路径）。永远只读。
-- **持久化**：`localStorage["dsh-theme-manager:off.v1"]`（关掉的层）与
-  `["dsh-theme-manager:managed.v1"]`（接管的层）。页面重新加载、或主题插件重建自己的
-  style 标签之后，本插件用 `MutationObserver` 盯住 `head` / `body` 的子节点变化，
-  把开关状态重新应用上去。
-- **自愈**：托管之外的层一律被强制 `disabled = false` —— 历史上被误关的宿主样式，
-  插件下次运行时会自己恢复。
-- 插件自报友好名：样式标签带 `data-dsh-theme-manager-layer="名字"` 时，列表里显示这个名字
-  （合并段给动态字体层用了它，于是那一行显示为「界面字体（通用设置 · 界面定制）」而不是包名）。
+## v0.9.0 删掉了什么（以及为什么）
+
+| 删掉 | 原因 |
+| --- | --- |
+| **主题层逐层开关面板** | 它管理的是「注入了 `--dsw-*` 的 `<style>` 层」，不是颜色 / 背景；与「设置 → 插件」的职责重叠。连带 `localStorage` 的 `off.v1` / `managed.v1`、接管逻辑、MutationObserver 自愈一起删 |
+| **菜单分组标题修补**（跟随面板 / 官方叠色两档） | 模型选择菜单里分组名的吸顶与叠色，是布局修补，与主题 / 背景无关 |
+| 内联段里的**「官方 UI 规范化」** | 顶部栏单行化、按钮胶囊族、设置页头统一、原生 `title` 气泡渲染 —— 不是主题职责 |
+| 内联段里的**「插件视觉协调」** | better-sidebar 面板 / 开关同步、genui 工具面板、第三方设置页补标题与间距 —— 不是主题职责 |
+| 调色盘其余 **7 个槽 + 6 套预设** | 只留「主色调」与「背景色」；配色预设与单槽功能重复 |
+| `tools/inline-harmonizer.mjs` + `tools/vendor/` | 内联段已按需裁剪，不再与上游逐字同步 —— 留着生成脚本会把裁剪覆盖回去 |
+
+**保留**：页面背景的全部能力（含毛玻璃遮罩、透出范围、文字颜色）、对外 HTTP 接口、host 半边。
+内联段里另保留了 5 条**布局让位**规则（会话区 / 输入框按 `--dsh-sidebar-width` 给右侧栏让位）——
+它们不是外观美化，删掉会让右侧文件面板盖住内容。
+
+精简幅度：
+
+| | 0.8.6 | 0.9.0 |
+| --- | --- | --- |
+| `lib/client.js` | 3552 行 | 2458 行 |
+| 内联段 CSS 规则 | 97 条 | 39 条 |
+| 离线测试 | 3 文件 / 175 项 | 2 文件 / 155 项 |
+
+## 主色调 / 背景色
+
+主题页下半部分：**两个槽**，各自三种改法（系统取色器 / 粘贴任意 CSS 颜色 / 重置）。
+
+- 用户选的颜色写进**独立**一张 `<style id="dsh-theme-manager-palette">`，选择器是
+  `html body:not([data-dsh-colors=off]):not([data-ds-dark-theme])` —— 特异性 (0,2,2)
+  高于主题层（0,1,1），所以**主题层重建或顺序变化都不会盖掉用户调的颜色**；
+- 只覆盖**改过**的槽位，其余 token 仍走主题默认；只作用于**浅色模式**；
+- 状态存 `localStorage["dsh-theme-manager:palette.v1"]`；早期版本存的其它 7 个槽位会被自动忽略。
+
+| 槽 | token |
+| --- | --- |
+| 主色调 | `--dsw-alias-brand-primary`、`--dsw-alias-button-primary-fill`、`--dsw-specific-sidebar-nav-item-active-accent` |
+| 背景色 | `--dsw-alias-bg-base`、`--dsw-alias-bg-layer-1`、`--dsw-specific-sidebar-fill` |
+
+菜单类浮层（模型选择 / 右键菜单）**完全跟随官方外观**：调色盘只在用户真的改过槽位时才注入
+`<style>`，且从不写 `--dsw-menu-surface-fill` / `--dsw-menu-backdrop-filter`。
 
 ## 页面背景（图片 / 视频）
 
@@ -148,57 +166,21 @@ curl -H 'Range: bytes=0-1023' "$BASE/asset?p=/Users/you/Pictures/a.jpg"
   **不含 svg**（同源渲染 SVG 可执行脚本）。请求体上限 64KB。
 - 页面里还有一行旁路接口：`window.__dshTheme.get() / set({…}) / image(path) / video(path) / clear() / refresh()`。
 
-## 合并进来的「界面统一」段（原 dsh-ui-harmonizer）
+## 界面定制（原 dsh-ui-harmonizer，已裁剪）
 
-v0.8.0 起，`dsh-ui-harmonizer` 0.8.3 的浏览器半边合并进 `lib/client.js`
-（调整 style 标签的命名空间、日志前缀和 DSH 0.2 的消息隐藏兼容；`localStorage["harness-ui-enhancer.state"]`
-原样保留，所以你原有的宽度 / 字号 / 字体设置不会丢）。原先单独挂载的包已从两个 profile 的
-`dsh.profile.bundles` 与 `dependencies` 里移除 —— **外观层只留本插件一个入口**。
+设置 → 通用设置 → 「界面定制」，与原来完全一样：
 
-带过来的能力（设置 → 通用设置 → 「界面定制」，与原来完全一样）：
+- 对话内容宽度（`--dsh-chat-content-width`）、对话字号、工作区字号、UI 字体（6 套预设）、圆角卡片；
+- 圆角卡片覆盖层（`shell.overlay`）：由 `html.enhc-center-card-on` 类开关，组件常驻做几何跟踪；
+- 状态键仍是 `localStorage["harness-ui-enhancer.state"]` —— **原有设置不丢**。
 
-- 官方 UI 规范化：顶部栏单行化、按钮胶囊族、设置页头统一、原生 `title` 提示改用官方气泡渲染；
-- 插件视觉协调：better-sidebar（面板 / 开关 / 根类同步）、genui 工具面板、第三方设置页自动补标题与间距；
-- 界面定制：对话内容宽度、对话字号、工作区字号、UI 字体、圆角卡片；
-- 会话区圆角卡片覆盖层（`shell.overlay`）。
+裁剪掉的（v0.9.0）：官方 UI 规范化、better-sidebar / genui 协调、设置页统一头、原生 `title`
+气泡、第三方设置页补标题与间距 —— 这些都不属于「主题 / 外观」，且与 `dsh-ui-fixes`、
+`dsh-plugin-polish` 的职责重叠。裁剪后 CSS 只剩 `--enhancer-*` 变量驱动的字号 / 宽度 / 侧栏缩放规则、圆角卡片规则，以及 5 条右侧栏让位规则。
 
-消息行的隐藏与高度由 DSH 管理。合并段不再给 `_flowItem` 设置
-`content-visibility:auto` 和 `contain-intrinsic-size:auto 120px`：前者会覆盖
-原生 `hidden="until-found"`，后者会在会话切换时引入估算高度变化。
-该修正同时保存在 vendor 副本与内联产物中。
-
-维护方式：
-
-```bash
-node tools/inline-harmonizer.mjs            # 用 tools/vendor/ 里的源码副本重新生成（幂等）
-node tools/inline-harmonizer.mjs <client.js> # 用指定文件重新生成，并刷新 vendor 副本
-```
-
-- 生成脚本只替换 `@@HARMONIZER-INLINE-START/END@@` 之间的内容，其余代码一个字不动；
-- 每条命名空间替换都要求命中，命中数为 0 直接报错退出（上游改版时宁可失败，也不要静默改坏）；
-- 源码副本 `tools/vendor/dsh-ui-harmonizer-0.8.3-client.js` 随仓库保留 —— 原包卸载后仍可重建。
-- 上游：<https://github.com/Physicolor/dsh-ui-harmonizer>（MIT）。
-
-## 调色盘
-
-一栏 9 个颜色槽（品牌色 / 页面底色 / 浮层 / 次级底色 / 气泡 / 主文字 / 次要文字 /
-弱化文字 / 边框），每槽三种改法：系统取色器、粘贴任意 CSS 颜色、底部 6 套现成配色一键铺满。
-
-- 用户选的颜色写进**独立**一张 `<style id="dsh-theme-manager-palette">`，选择器是
-  `html body:not([data-dsh-colors=off]):not([data-ds-dark-theme])` —— 特异性 (0,2,2)
-  高于主题 `COLOR_CSS` 的 (0,1,1)，所以**主题层重建或顺序变化都不会盖掉用户调的颜色**；
-- 只覆盖**改过**的槽位，其余 token 仍走主题默认；只作用于**浅色模式**；
-- 状态存 `localStorage["dsh-theme-manager:palette.v1"]`。
-
-## 菜单浮层（不干预）
-
-模型选择 / 右键菜单这类 `MenuSurface` 浮层**完全跟随官方外观**（`--dsw-menu-surface-fill`
-与 `--dsw-menu-backdrop-filter` 由官方给出）。v0.4.1–v0.5.0 曾无条件把它们改成实色，
-v0.6.0 起已删除：调色盘只在用户**真的改过某个槽位**时才注入 `<style>`。
-要再给菜单做定制，请做成**带开关**的独立段落，别用「恒存在的标签写死 token」。
-
-**分组标题**（「DeepSeek 账号」「GPT」这些组名）另有一档开关：`跟随面板`（默认，把叠色换成同款
-毛玻璃、并取消吸顶）↔ `官方叠色`。状态存 `localStorage["dsh-theme-manager:menu.v1"]`。
+内联段现在是**本插件自有代码**：`tools/inline-harmonizer.mjs` 与 `tools/vendor/`（上游逐字副本 +
+生成脚本）已删除 —— 否则重新生成会把裁剪覆盖回去。
+上游参考：<https://github.com/Physicolor/dsh-ui-harmonizer>（MIT）。
 
 ## 装了什么
 
@@ -206,14 +188,11 @@ v0.6.0 起已删除：调色盘只在用户**真的改过某个槽位**时才注
 dsh-theme-manager
   ├─ lib/index.js   host 半边：/dsh-theme-manager/* 路由（状态读写 + 媒体流 + Range）、
   │                 状态落盘 $DSH_HOME/state/theme-manager/background.json
-  ├─ lib/client.js  浏览器半边：主题层扫描/开关、调色盘、菜单修补、页面背景层、
+  ├─ lib/client.js  浏览器半边：主色调 / 背景色调色盘、页面背景层、
   │                 设置页（settings.section id=theme-manager）、
-  │                 合并进来的「界面统一」段
-  ├─ tools/inline-harmonizer.mjs   合并段的生成器（+ tools/vendor 源码副本）
-  └─ tests/         三个离线回归（见下）
+  │                 内联的「界面定制」段（已裁剪）
+  └─ tests/         两个离线回归（见下）
 ```
-
-不注册任何模型工具、不发任何外部网络请求（只跟自己的 host 路由通信）。
 
 ## 安装
 
@@ -235,33 +214,37 @@ dsh-theme-manager
 
 ## 已知限制
 
-- 只能管「注入 `<style>` 的主题」。若某插件通过 `<link>`、内联 `style=""` 或 CSS-in-JS 生效，
-  它不会出现在列表里。
-- 开关是页面级的：不改插件安装状态；要真正卸载某个主题插件，去「设置 → 插件」。
-- 同名层被多个插件重复注入时，列表里会出现多行（各自独立开关）。
+- 调色盘只作用于**浅色模式**；暗色模式是另一套 token，不做覆盖。
 - 背景的「透出范围」是**属性选择器**（`[data-slot="sidebar"]` 等）实现的，官方前端大改结构时可能失效；
   背景层参数（不透明度 / 模糊 / 暗化 / 内容底板）不受影响。
 - 浏览器里打开 DSH Web（非桌面外壳）时，文件选择器**拿不到绝对路径** —— 此时只做临时 blob 预览并给出提示，
   要持久化请手填绝对路径或用 HTTP 接口。
-- 合并段的 CSS 选择器依赖官方 CSS Modules 的**类名后缀**，与上游一样属于版本敏感型补丁。
+- 「界面定制」的 CSS 选择器依赖官方 CSS Modules 的**类名后缀**，与上游一样属于版本敏感型补丁。
+- 本插件不再提供「主题层逐层开关」：装了新的主题插件后，要停用它请到「设置 → 插件」。
 
 ## 测试
 
 ```bash
-node tests/layer-classify-test.mjs   # 24 项：主题层边界 / 接管 / key 唯一性 / 轨迹视图输入区（最小 DOM stub 真跑 client.js）
 node tests/host-api-test.mjs         # 66 项：真实 HTTP —— 状态归一化与钳制、落盘、Range 206/416、扩展名白名单、CORS、413
-node tests/background-test.mjs       # 85 项：stub DOM 真跑 client.js —— 背景层生成/复用/移除、参数→CSS、与 host 往返、
-                                     #        合并段是否真的挂上（3 个 slot + 命名空间）
-npm test                             # 三个一起跑
+node tests/background-test.mjs       # 89 项：stub DOM 真跑 client.js —— 背景层生成/复用/移除、参数→CSS、与 host 往返、
+                                     #        主色调调色盘只注入改过的槽、内联「界面定制」段只挂设置项 + 圆角卡片
+npm test                             # 两个一起跑
 ```
 
-三个测试都**不需要重启应用、不需要浏览器**：host 部分把 handler 挂到真实 `node:http` 上打请求，
+两个测试都**不需要重启应用、不需要浏览器**：host 部分把 handler 挂到真实 `node:http` 上打请求，
 client 部分用最小 DOM stub 跑真的 `factory`。视觉与采样行为另用 Chromium 模拟真实布局验证。
+
+`tests/host-api-test.mjs` 依赖 `/tmp/dsh-theme-test/` 里的媒体 fixture（`pic.png` / `clip.mp4` /
+`notes.txt` / `x.svg`），机器重启后 `/tmp` 被清空会 `ENOENT`，先重建即可：
+
+```bash
+mkdir -p /tmp/dsh-theme-test/home && cd /tmp/dsh-theme-test
+python3 -c "open('pic.png','wb').write(b'\x89PNG\r\n\x1a\n'+b'0'*2048); open('clip.mp4','wb').write(b'ftypisom'+b'0'*2048); open('notes.txt','w').write('x'); open('x.svg','w').write('<svg/>')"
+```
 
 ## License
 
 MIT © 2026 jipika
 
-`lib/client.js` 中的「界面统一」段（`@@HARMONIZER-INLINE-START/END@@` 之间）是
-[dsh-ui-harmonizer](https://github.com/Physicolor/dsh-ui-harmonizer) v0.8.3 的逐字副本，
-版权归其作者（MIT）。详见该仓库 LICENSE。
+`lib/client.js` 里的「界面定制」段派生自 [dsh-ui-harmonizer](https://github.com/Physicolor/dsh-ui-harmonizer)
+v0.8.3（MIT，版权归其作者），v0.9.0 起按本插件的窄口径做过裁剪，不再逐字同步。
