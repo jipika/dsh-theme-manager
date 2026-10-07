@@ -5,8 +5,9 @@
 // 覆盖三件事：
 //   ① 背景层（图片/视频）：DOM 生成与移除、参数 → CSS 映射、元素复用策略；
 //   ② 与 host 的往返：fetch 打 /dsh-theme-manager/*、revision 变化才重建 DOM；
-//   ③ 内联的「界面定制」段（原 dsh-ui-harmonizer，已裁剪掉 UI 规范化/插件协调）真的被挂上：
-//      设置项 + 圆角卡片 slot 注册 + 静态 CSS 只剩字号/宽度/卡片那批规则。
+//   ③ 内联的「界面定制」段（原 dsh-ui-harmonizer，已裁剪）真的被挂上：
+//      只剩「工作区字号 / UI 字体」两个设置项、静态 CSS 只剩侧栏缩放与让位规则；
+//      对话内容宽度 / 对话字号 / 圆角卡片已删除，shell.overlay 不再注册、旧状态字段被清除。
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
@@ -424,20 +425,51 @@ function mergeState(state, patch) {
 	exports.apply(ctx);
 
 	ok("⑧ 注册了 settings.general.item（界面定制那一块）", registered.some((r) => String(r).startsWith("settings.general.item")), registered);
-	ok("⑧ 注册了 shell.overlay（圆角卡片覆盖层）", registered.some((r) => String(r).startsWith("shell.overlay")), registered);
+	ok("⑧ 不再注册 shell.overlay（圆角卡片已删）", !registered.some((r) => String(r).startsWith("shell.overlay")), registered);
 	ok("⑧ 注册了本插件的主题设置页", registered.some((r) => String(r).includes("theme-manager")), registered);
 	ok("⑧ 内联段跑过 CSS 生命周期 effect", effects.some((l) => String(l).includes("css lifecycle")), effects);
 	ok("⑧ 不再注册设置页统一头（GeneralHeader 已删）", !registered.some((r) => String(r).includes("ui-enhancer-header")), registered);
 	ok("⑧ 不再注册 better-sidebar / genui 协调 effect", !effects.some((l) => /better-sidebar|relocation|title fill|tooltips/.test(String(l))), effects);
 	const harmonizerStyle = dom.head.children.filter((el) => el.getAttribute("data-plugin-css") === "dsh-theme-manager/harmonizer.module.css")[0];
 	ok("⑧ 静态 CSS 用的是本插件命名空间", harmonizerStyle !== undefined, dom.head.children.map((el) => el.getAttribute("data-plugin-css")));
-	ok("⑧ 静态 CSS 只剩界面定制那批规则块（< 7KB）", harmonizerStyle !== undefined && harmonizerStyle.textContent.length > 4000 && harmonizerStyle.textContent.length < 7000, harmonizerStyle?.textContent?.length);
-	ok("⑧ 保留 --enhancer-* 驱动规则与圆角卡片类", harmonizerStyle !== undefined && /--enhancer-content-width/.test(harmonizerStyle.textContent) && /enhc-center-card-on/.test(harmonizerStyle.textContent));
+	ok("⑧ 静态 CSS 只剩侧栏缩放 + 让位规则（2.5–5KB）", harmonizerStyle !== undefined && harmonizerStyle.textContent.length > 2500 && harmonizerStyle.textContent.length < 5000, harmonizerStyle?.textContent?.length);
+	ok("⑧ 保留 --enhancer-sidebar-scale 驱动规则", harmonizerStyle !== undefined && /--enhancer-sidebar-scale/.test(harmonizerStyle.textContent));
+	ok("⑧ 对话宽度 / 对话字号 / 圆角卡片的 CSS 已删净", harmonizerStyle !== undefined && !/--enhancer-content-width|--enhancer-font-size|--enhancer-font-line|--enhancer-chat-scale|--dsh-chat-content-width|enhc-center-card/.test(harmonizerStyle.textContent), harmonizerStyle?.textContent?.slice(0, 240));
 	ok("⑧ 已删掉插件协调 / UI 规范化的选择器", harmonizerStyle !== undefined && !/nArs4W|_toggleButton|_toggleCluster|data-genui|settings\\\\.section/.test(harmonizerStyle.textContent), harmonizerStyle?.textContent?.slice(0, 200));
 	ok("⑧ 消息行不覆盖原生 hidden=until-found，也不插入估算高度", harmonizerStyle !== undefined && !/\[class\$=_flowItem\][^{]*\{[^}]*(?:content-visibility|contain-intrinsic-size)/u.test(harmonizerStyle.textContent));
 	ok("⑧ 没有用旧插件的 data-plugin 值", dom.head.children.every((el) => el.getAttribute("data-plugin") !== "dsh-ui-harmonizer"), dom.head.children.map((el) => el.getAttribute("data-plugin")));
 	/* localStorage 键必须保持原样：用户原有的宽度/字号/字体设置不能丢 */
 	ok("⑧ 存储键仍是 harness-ui-enhancer.state", half !== null && JSON.stringify(half).length > 0);
+
+	/* ── 删除三项后：源码里不该再有它们的行 / 辅助 / 类名 ── */
+	const source = readFileSync(TARGET, "utf8");
+	absent("⑧ 源码", source, "getRowWidth");
+	absent("⑧ 源码", source, "getRowFontSize");
+	absent("⑧ 源码", source, "getRowCard");
+	absent("⑧ 源码", source, "markdownCss");
+	absent("⑧ 源码", source, "SwitchControl");
+	absent("⑧ 源码", source, "CenterColCard");
+	absent("⑧ 源码", source, "enhc-center-card");
+	absent("⑧ 源码", source, "enhancer-content-width");
+	absent("⑧ 源码", source, "enhancer-chat-scale");
+	absent("⑧ 源码", source, 'key: "width"');
+	absent("⑧ 源码", source, 'key: "center-card"');
+	contains("⑧ 源码", source, 'key: "sidebar"');
+	contains("⑧ 源码", source, 'key: "font-family"');
+	contains("⑧ 源码", source, "MARKDOWN_FAMILY_VARS");
+
+	/* ── 旧 localStorage 里被删字段必须被就地清除（用户选「清掉」） ── */
+	const dom2 = setUpDom();
+	dom2.window.localStorage.setItem("harness-ui-enhancer.state", JSON.stringify({ width: 900, fontSize: 18, card: true, sidebarSize: 16, fontId: "mono" }));
+	const { api: api2 } = await loadPlugin(dom2, { fetchImpl: makeHost(BG_STATE) });
+	const half2 = api2.harmonizerHalf((id) => (id === "react" ? { createElement: () => ({}), useState: () => [undefined, () => {}], useEffect: () => {}, useRef: () => ({ current: null }), useSyncExternalStore: () => ({}), Fragment: "Fragment" } : {}));
+	half2.apply({
+		effect: (fn) => { try { fn(); } catch { /* noop */ } },
+		slots: { inject: (slot, fn) => { fn(); }, register: () => () => {} }
+	});
+	const persisted = JSON.parse(dom2.window.localStorage.getItem("harness-ui-enhancer.state"));
+	ok("⑧ 已删字段 width / fontSize / card 被清除", persisted.width === undefined && persisted.fontSize === undefined && persisted.card === undefined, persisted);
+	ok("⑧ 存活字段 sidebarSize / fontId 原样保留", persisted.sidebarSize === 16 && persisted.fontId === "mono", persisted);
 }
 
 /* ═══════════════════ 用例 9：合并段抛错不影响主功能 ═══════════════════ */

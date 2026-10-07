@@ -1,17 +1,21 @@
+<div align="center">
+  <img src="assets/icon.svg" width="72" alt="dsh-theme-manager icon">
+</div>
+
 # dsh-theme-manager
 
 > 给 DeepSeek Harness 的**窄口径**外观插件。设置 → 左侧导航「主题」里只有两件事：
 > 换**主色调 / 背景色**，换**页面背景**（图片 / 视频，也能被本机 HTTP 接口远程更换）。
-> 另外把「界面定制」并了进来（设置 → 通用设置的 **字号 / 宽度 / 字体 / 圆角卡片**，原
-> `dsh-ui-harmonizer` 的那一块）。除此之外什么都不管。
+> 另外把「界面定制」并了进来（设置 → 通用设置的 **工作区字号 / UI 字体**，原
+> `dsh-ui-harmonizer` 的那一块；对话内容宽度 / 对话字号 / 圆角卡片已删除）。除此之外什么都不管。
 
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 > **拥有**：设置页「主题」（`settings.section id=theme-manager`）；本插件的三张 `<style>`
 > （设置页样式 / 调色盘 / 背景）；背景层 `#dsh-theme-manager-bg-layer`（插在 `body` 最前面）；
 > host 侧路由 `/dsh-theme-manager/*` 与状态文件 `$DSH_HOME/state/theme-manager/background.json`；
-> 「界面定制」段（`settings.general.item` 里一行 + `shell.overlay` 的圆角卡片覆盖层）。
-> **冲突时**：`--dsh-chat-content-width` 让给 `dsh-ui-fixes`（官方拖拽优先）；会话滚动行为归
+> 「界面定制」段（`settings.general.item` 里一行：工作区字号 / UI 字体）。
+> **冲突时**：对话列宽度完全归官方拖拽（本插件不再写 `--dsh-chat-content-width`）；会话滚动行为归
 > `dsh-think-ux` / `dsh-smooth-stream`；MenuSurface token（`--dsw-menu-surface-fill` 等）**一律不改**
 > （菜单保持官方毛玻璃）。
 > **回滚**：删 profile `cordis.patch.yml` 里 id `theme-manager` 的 insert + 重启应用；只回滚背景
@@ -28,7 +32,7 @@
 | --- | --- | --- |
 | 主色调 / 背景色 | 设置 → 主题 | **2 个颜色槽**：主色调（品牌 / 强调色）、背景色（页面底色）；每个槽 = 系统取色器 + 粘贴任意 CSS 颜色 + 重置 |
 | 页面背景 | 设置 → 主题 | 图片 / 视频壁纸（本地绝对路径 · 拖拽 · 网络地址），适配方式、透出范围、不透明度 / 模糊 / 暗化、壁纸文字颜色、毛玻璃遮罩 |
-| 界面定制 | 设置 → 通用设置 | 对话内容宽度、对话字号、工作区字号、UI 字体、圆角卡片（原 `dsh-ui-harmonizer` 的设置项） |
+| 界面定制 | 设置 → 通用设置 | 工作区字号、UI 字体（原 `dsh-ui-harmonizer` 的设置项；对话内容宽度 / 对话字号 / 圆角卡片已删除） |
 
 不注册模型工具、不发外部网络请求（只跟自己的 host 路由通信）。
 
@@ -168,15 +172,21 @@ curl -H 'Range: bytes=0-1023' "$BASE/asset?p=/Users/you/Pictures/a.jpg"
 
 ## 界面定制（原 dsh-ui-harmonizer，已裁剪）
 
-设置 → 通用设置 → 「界面定制」，与原来完全一样：
+设置 → 通用设置 → 「界面定制」，现在只剩两行：
 
-- 对话内容宽度（`--dsh-chat-content-width`）、对话字号、工作区字号、UI 字体（6 套预设）、圆角卡片；
-- 圆角卡片覆盖层（`shell.overlay`）：由 `html.enhc-center-card-on` 类开关，组件常驻做几何跟踪；
-- 状态键仍是 `localStorage["harness-ui-enhancer.state"]` —— **原有设置不丢**。
+- **工作区字号**（`--enhancer-sidebar-scale`，12–20px）：左侧工作区列表 / 按钮 / 图标的整体大小；
+- **UI 字体**（6 套预设）：只覆盖 markdown 的 `--dsw-font-markdown-*-font-family` 变量，
+  **不再接管字号 / 行高 / 字重**（官方 `--dsh-content-font-size` + `--dsh-content-font-delta` 说了算）；
+- 状态键仍是 `localStorage["harness-ui-enhancer.state"]`，但只读 `sidebarSize` / `fontId` ——
+  已删除的 `width` / `fontSize` / `card` 在首次载入后即被覆写清除（不会有幽灵设置继续生效）。
+
+**已删除的三项**（用户要求）：对话内容宽度（连同 `div[data-phase]{--dsh-chat-content-width}` 覆盖，
+对话列宽度完全回归官方拖拽）、对话字号（连同 composer 栏 / 菜单的 `--enhancer-chat-scale` 缩放）、
+圆角卡片（`shell.overlay` 覆盖层 + `.enhc-center-card*` 全部规则与 `html.enhc-center-card-on` 类）。
 
 裁剪掉的（v0.9.0）：官方 UI 规范化、better-sidebar / genui 协调、设置页统一头、原生 `title`
 气泡、第三方设置页补标题与间距 —— 这些都不属于「主题 / 外观」，且与 `dsh-ui-fixes`、
-`dsh-plugin-polish` 的职责重叠。裁剪后 CSS 只剩 `--enhancer-*` 变量驱动的字号 / 宽度 / 侧栏缩放规则、圆角卡片规则，以及 5 条右侧栏让位规则。
+`dsh-plugin-polish` 的职责重叠。裁剪后 CSS 只剩 `--enhancer-sidebar-scale` 驱动的侧栏缩放规则，以及 5 条右侧栏让位规则（约 3.3KB）。
 
 内联段现在是**本插件自有代码**：`tools/inline-harmonizer.mjs` 与 `tools/vendor/`（上游逐字副本 +
 生成脚本）已删除 —— 否则重新生成会把裁剪覆盖回去。
@@ -227,7 +237,7 @@ dsh-theme-manager
 ```bash
 node tests/host-api-test.mjs         # 66 项：真实 HTTP —— 状态归一化与钳制、落盘、Range 206/416、扩展名白名单、CORS、413
 node tests/background-test.mjs       # 89 项：stub DOM 真跑 client.js —— 背景层生成/复用/移除、参数→CSS、与 host 往返、
-                                     #        主色调调色盘只注入改过的槽、内联「界面定制」段只挂设置项 + 圆角卡片
+                                     #        主色调调色盘只注入改过的槽、内联「界面定制」段只剩两个设置项、已删三项不复发
 npm test                             # 两个一起跑
 ```
 

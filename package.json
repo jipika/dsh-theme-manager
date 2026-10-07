@@ -1,5 +1,6 @@
 {
   "name": "dsh-theme-manager",
+  "icon": "./assets/icon.svg",
   "version": "0.9.0",
   "description": "Theme manager for DeepSeek Harness, deliberately narrow: one settings page that changes the accent color (主色调 / background color tokens) and the page background (local image or video, swappable from the UI or by any external program over a loopback HTTP API), plus the merged-in 「界面定制」 sizing block (chat width / chat font size / sidebar font size / UI font / rounded card).",
   "license": "MIT",
