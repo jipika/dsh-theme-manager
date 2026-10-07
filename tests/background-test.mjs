@@ -489,6 +489,45 @@ function mergeState(state, patch) {
 	ok("⑨ 背景逻辑仍然生效（仍是可用句柄）", typeof api.applyBackground === "function");
 }
 
+/* ═══════════════════ 用例 9b：主色调徽章配对（v0.9.1）═══════════════════ */
+/* 官方 QuestionComposer 徽章 = 底 var(--dsw-specific-sidebar-nav-item-active-accent)
+ * + 字 var(--dsw-alias-button-info-fill)。主色调槽改深色时底变深、字不变 → 深底蓝字
+ * 看不清（2026-10-07 用户截图报障）。调色盘必须按亮度补前景：深底暖白 / 浅底近黑。 */
+{
+	const dom = setUpDom();
+	const { api } = await loadPlugin(dom, { fetchImpl: makeHost(BG_STATE) });
+
+	/* 没改主色调：徽章规则根本不存在（官方外观原样，不添乱） */
+	api.applyPalette();
+	const styleEl = dom.document.getElementById("dsh-theme-manager-palette");
+	ok("⑨b 未改主色调时不生成徽章规则", styleEl === null || !String(styleEl.textContent).includes("_badge"), styleEl && styleEl.textContent);
+
+	/* 深色主色调（用户实际选的 #0f1115）：徽章前景必须是暖白 */
+	ok("⑨b setSlotColor 接受 #0f1115", api.setSlotColor("brand", "#0f1115") === true);
+	const dark = dom.document.getElementById("dsh-theme-manager-palette").textContent;
+	contains("⑨b 深色主色调写入 token", dark, "--dsw-specific-sidebar-nav-item-active-accent: #0f1115;");
+	contains("⑨b 深底徽章配暖白前景", dark, '[class*="_optionLine"] > [class*="_badge"] {\n  color: #FAF9F5;');
+	contains("⑨b 徽章规则限定浅色模式", dark, 'body:not([data-dsh-colors=off]):not([data-ds-dark-theme]) [class*="_optionLine"]');
+	absent("⑨b 只改前景不碰徽章背景", dark, "_badge\"] {\n  background");
+
+	/* 浅色主色调：前景折回近黑 */
+	ok("⑨b setSlotColor 接受浅色", api.setSlotColor("brand", "#e4edfd") === true);
+	const light = dom.document.getElementById("dsh-theme-manager-palette").textContent;
+	contains("⑨b 浅底徽章配近黑前景", light, "color: #141413;");
+	absent("⑨b 浅色时不遗留暖白", light, "color: #FAF9F5;");
+
+	/* 重置：规则随之消失 */
+	api.resetPalette();
+	ok("⑨b 重置后徽章规则消失", !dom.document.getElementById("dsh-theme-manager-palette"), "标签应被移除");
+
+	/* 亮度函数本身：黑白两端与浅色分界。中灰 #808080 实测 0.216（<0.4 判深、配
+	 * 白字 —— 灰底蓝字对比仅 1.07:1，判深是对的），浅灰 #c0c0c0 才到浅档。 */
+	ok("⑨b 黑的亮度≈0", api.colorLuminance("#000000") < 0.01, api.colorLuminance("#000000"));
+	ok("⑨b 白的亮度≈1", api.colorLuminance("#ffffff") > 0.99, api.colorLuminance("#ffffff"));
+	ok("⑨b 中灰判为深（配白字）", api.colorLuminance("#808080") < 0.4, api.colorLuminance("#808080"));
+	ok("⑨b 浅灰判为浅（配近黑）", api.colorLuminance("#c0c0c0") >= 0.4, api.colorLuminance("#c0c0c0"));
+}
+
 /* ═══════════════════ 用例 10：毛玻璃遮罩按区域取色 ═══════════════════ */
 
 {
