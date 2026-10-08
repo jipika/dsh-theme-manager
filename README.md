@@ -72,7 +72,13 @@
 | 槽 | token |
 | --- | --- |
 | 主色调 | `--dsw-alias-brand-primary`、`--dsw-alias-button-primary-fill`、`--dsw-specific-sidebar-nav-item-active-accent` |
-| 背景色 | `--dsw-alias-bg-base`、`--dsw-alias-bg-layer-1`、`--dsw-specific-sidebar-fill` |
+| 背景色 | `--dsw-alias-bg-base`、`--dsw-alias-bg-layer-1`（**刻意不含** `--dsw-specific-sidebar-fill`） |
+
+> **背景色不碰左侧栏**（v0.9.2 起）：`--dsw-specific-sidebar-fill` 是侧栏底色的输入，
+> macOS 上官方还拿它算窗口材质（`[data-platform="darwin"] ._sidebarCol` 的
+> `color-mix(… 97%, #7a9bf0)` 40% 混色 + 蓝紫双段渐变）。早先把它列进「背景色」槽，
+> 结果是**换个背景色就把左侧材质一起洗平**。现在背景色只写会话主区的两个 token，
+> 侧栏交还官方 —— 材质、渐变、选中态强调色（主色调槽那条）都照旧。
 
 菜单类浮层（模型选择 / 右键菜单）**完全跟随官方外观**：调色盘只在用户真的改过槽位时才注入
 `<style>`，且从不写 `--dsw-menu-surface-fill` / `--dsw-menu-backdrop-filter`。

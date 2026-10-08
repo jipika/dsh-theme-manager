@@ -528,6 +528,30 @@ function mergeState(state, patch) {
 	ok("⑨b 浅灰判为浅（配近黑）", api.colorLuminance("#c0c0c0") >= 0.4, api.colorLuminance("#c0c0c0"));
 }
 
+/* ═════ 用例 9c：背景色不越界到左侧栏（v0.9.2）═════ */
+/* `--dsw-specific-sidebar-fill` 是侧栏底色的输入，macOS 官方还拿它算窗口材质
+ * （`[data-platform="darwin"] ._sidebarCol` 的 `color-mix(… 97%, #7a9bf0)` 40% 混色
+ * + 蓝紫双段渐变）。它一旦被「背景色」槽覆盖，用户换个背景色就把左侧材质一起洗平
+ * （2026-10-08 用户报障：「我要的就是 macos 材质，背景色我设置的不应该影响到左边」）。
+ * 这里把这条边界钉死：背景色只写会话主区的两个底色 token。 */
+{
+	const dom = setUpDom();
+	const { api } = await loadPlugin(dom, { fetchImpl: makeHost(BG_STATE) });
+
+	ok("⑨c setSlotColor 接受背景色", api.setSlotColor("bg", "#ff0000") === true);
+	api.applyPalette();
+	const style = dom.document.getElementById("dsh-theme-manager-palette").textContent;
+	contains("⑨c 背景色写主区底色", style, "--dsw-alias-bg-base: #ff0000;");
+	contains("⑨c 背景色写层次底色", style, "--dsw-alias-bg-layer-1: #ff0000;");
+	absent("⑨c 背景色**不**覆盖侧栏底色 token（macOS 材质不受影响）", style, "--dsw-specific-sidebar-fill:");
+
+	/* 反向对照：主色调槽仍在写侧栏的**选中态** token —— 那与材质无关，保留 */
+	ok("⑨c setSlotColor 接受主色调", api.setSlotColor("brand", "#0f1115") === true);
+	const both = dom.document.getElementById("dsh-theme-manager-palette").textContent;
+	contains("⑨c 主色调仍写侧栏选中态 token", both, "--dsw-specific-sidebar-nav-item-active-accent: #0f1115;");
+	absent("⑨c 主色调也不碰侧栏底色 token", both, "--dsw-specific-sidebar-fill:");
+}
+
 /* ═══════════════════ 用例 10：毛玻璃遮罩按区域取色 ═══════════════════ */
 
 {
